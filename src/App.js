@@ -2,9 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import { supabase } from "./supabaseClient";
 
+const getSiteBaseUrl = () => {
+	if (typeof process !== "undefined" && process.env.REACT_APP_SITE_URL) {
+		return process.env.REACT_APP_SITE_URL;
+	}
+	if (typeof window !== "undefined" && window.location?.origin) {
+		return window.location.origin;
+	}
+	return "https://secret-santa-cpk.pages.dev";
+};
+
 const createGroupLink = () => {
 	const slug = Math.random().toString(36).slice(2, 10);
-	return `https://secretsanta.example/group/${slug}`;
+	return {
+		slug,
+		url: `${getSiteBaseUrl()}/group/${slug}`,
+	};
 };
 function App() {
 	const [rawNames, setRawNames] = useState("");
@@ -22,6 +35,9 @@ function App() {
 	const [isSaving, setIsSaving] = useState(false);
 	const [isLocking, setIsLocking] = useState(false);
 	const [isResetting, setIsResetting] = useState(false);
+	const [isEmailing, setIsEmailing] = useState(false);
+	const [groupSlug, setGroupSlug] = useState("");
+	const [isGroupLoading, setIsGroupLoading] = useState(false);
 
 	const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -66,9 +82,11 @@ function App() {
 		setEmail("");
 		setDrawMessage("");
 		setGroupLink("");
+		setGroupSlug("");
 		setGroupLocked(false);
 		setLockMessage("");
-	if (uniqueNames.length === 0) {
+
+		if (uniqueNames.length === 0) {
 			setSaveMessage("No names captured. Add at least one participant.");
 			return;
 		}
@@ -129,7 +147,7 @@ function App() {
 				}
 			}
 
-	setSaveMessage("Participant list saved. Generate group link to start.");
+			setSaveMessage("Participant list saved. Generate group link to start.");
 		} catch (error) {
 			console.error("Supabase save error", error);
 			setSaveMessage("Could not save group. Try again.");
@@ -157,8 +175,7 @@ function App() {
 		}
 
 		setIsLocking(true);
-		const link = createGroupLink();
-		const slug = link.split("/").pop();
+		const { slug, url } = createGroupLink();
 
 		try {
 			const response = await supabase
@@ -172,10 +189,14 @@ function App() {
 				throw response.error;
 			}
 
-		setGroupLink(link);
-		setGroupLocked(true);
-		setLockMessage("Group locked. Share the link so everyone can draw.");
-		setSaveMessage("");
+			setGroupSlug(slug);
+			setGroupLink(url);
+			setGroupLocked(true);
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setSaveMessage("");
+			if (typeof window !== "undefined") {
+				window.history.replaceState({}, "Secret Santa", `/group/${slug}`);
+			}
 		} catch (error) {
 			console.error("Supabase lock error", error);
 			setLockMessage("Could not lock group. Try again.");
@@ -209,6 +230,8 @@ function App() {
 			setDrawMessage("Ask the organiser to refresh the page before drawing.");
 			return;
 		}
+
+		setIsEmailing(true);
 
 		let mergedAssignments = { ...assignments };
 		const remoteAssignments = {};
@@ -258,6 +281,7 @@ function App() {
 				existingAssignment.email !== trimmedEmail
 			) {
 				setDrawMessage("Looks like someone already claimed this name.");
+				setIsEmailing(false);
 				return;
 			}
 
@@ -300,6 +324,7 @@ function App() {
 					setDrawMessage(
 						"We found your draw but couldn't send the email. Ask the organiser to resend."
 					);
+					setIsEmailing(false);
 					return;
 				}
 			} catch (invokeError) {
@@ -307,10 +332,12 @@ function App() {
 				setDrawMessage(
 					"We found your draw but couldn't send the email. Ask the organiser to resend."
 				);
+				setIsEmailing(false);
 				return;
 			}
 
 			setDrawMessage("We just resent your match to your email.");
+			setIsEmailing(false);
 			return;
 		}
 
@@ -327,6 +354,7 @@ function App() {
 			setDrawMessage(
 				"Everyone else has already been matched. Ask the organiser to reset."
 			);
+			setIsEmailing(false);
 			return;
 		}
 
@@ -347,6 +375,7 @@ function App() {
 		if (drawError) {
 			console.error("Supabase draw update error", drawError);
 			setDrawMessage("Could not store your draw. Try again.");
+			setIsEmailing(false);
 			return;
 		}
 
@@ -375,6 +404,7 @@ function App() {
 				setDrawMessage(
 					"We saved your draw but couldn't send the email. Ask the organiser to resend."
 				);
+				setIsEmailing(false);
 				return;
 			}
 		} catch (invokeError) {
@@ -382,10 +412,12 @@ function App() {
 			setDrawMessage(
 				"We saved your draw but couldn't send the email. Ask the organiser to resend."
 			);
+			setIsEmailing(false);
 			return;
 		}
 
-	setDrawMessage("All set! We just emailed you the name you drew.");
+		setDrawMessage("All set! We just emailed you the name you drew.");
+		setIsEmailing(false);
 	};
 
 	const handleResetGroup = async () => {
@@ -414,13 +446,17 @@ function App() {
 			setRawNames("");
 			setSelectedName("");
 			setEmail("");
-		setDrawMessage("");
-		setGroupLocked(false);
-		setGroupLink("");
-		setLockMessage("");
-		setSaveMessage("Group reset. Add names to start again.");
+			setDrawMessage("");
+			setGroupLocked(false);
+			setGroupLink("");
+			setGroupSlug("");
+			setLockMessage("");
+			setSaveMessage("Group reset. Add names to start again.");
 			setOrganiserEmail("");
 			setGroupId(null);
+			if (typeof window !== "undefined") {
+				window.history.replaceState({}, "Secret Santa", "/");
+			}
 		} catch (error) {
 			console.error("Supabase reset error", error);
 			setSaveMessage("Could not reset group. Try again.");
@@ -457,10 +493,110 @@ function App() {
 		});
 	}, [assignments, trimmedEmail, selectedName]);
 
-const selectedAssignment = selectedName ? assignments[selectedName] : null;
+	useEffect(() => {
+		if (typeof window === "undefined") {
+			return;
+		}
+
+		const match = window.location.pathname.match(/^\/group\/([a-z0-9_-]+)$/i);
+		if (!match) {
+			return;
+		}
+
+		const slugFromPath = match[1];
+		if (groupId && groupSlug === slugFromPath) {
+			return;
+		}
+
+		let isCancelled = false;
+
+		const loadGroup = async () => {
+			setIsGroupLoading(true);
+
+			const { data: groupRow, error: groupError } = await supabase
+				.from("groups")
+				.select("id, organiser_email, slug")
+				.eq("slug", slugFromPath)
+				.maybeSingle();
+
+			if (groupError || !groupRow) {
+				if (!isCancelled) {
+					setLockMessage(
+						"We couldn't find that group. Ask your organiser for a fresh link."
+					);
+				}
+				setIsGroupLoading(false);
+				return;
+			}
+
+			const { data: participantRows, error: participantsError } = await supabase
+				.from("participants")
+				.select("name, email, giftee_name, drawn_at")
+				.eq("group_id", groupRow.id)
+				.order("name", { ascending: true });
+
+			if (participantsError) {
+				console.error("Supabase participants fetch error", participantsError);
+				if (!isCancelled) {
+					setLockMessage(
+						"We couldn't load participants right now. Try refreshing."
+					);
+				}
+				setIsGroupLoading(false);
+				return;
+			}
+
+			const roster = (participantRows ?? []).map(
+				(participant) => participant.name
+			);
+			const assignmentsFromDb = {};
+
+			(participantRows ?? []).forEach((participant) => {
+				if (!participant.giftee_name) {
+					return;
+				}
+
+				assignmentsFromDb[participant.name] = {
+					giftee: participant.giftee_name,
+					email: participant.email || "",
+					timestamp: participant.drawn_at
+						? new Date(participant.drawn_at).getTime()
+						: Date.now(),
+				};
+			});
+
+			if (isCancelled) {
+				return;
+			}
+
+			setGroupId(groupRow.id);
+			setGroupSlug(slugFromPath);
+			setGroupLink(`${getSiteBaseUrl()}/group/${slugFromPath}`);
+			setOrganiserEmail(groupRow.organiser_email || "");
+			setParticipants(roster);
+			setAssignments(assignmentsFromDb);
+			setRawNames(roster.join("\n"));
+			setGroupLocked(true);
+			setSaveMessage("");
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setIsGroupLoading(false);
+		};
+
+		loadGroup();
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [groupId, groupSlug]);
+
+	const selectedAssignment = selectedName ? assignments[selectedName] : null;
 
 	const drawDisabled =
-		!groupLocked || participants.length < 2 || !selectedName || !trimmedEmail;
+		!groupLocked ||
+		participants.length < 2 ||
+		!selectedName ||
+		!trimmedEmail ||
+		isGroupLoading;
 
 	const selectDisabled = !groupLocked || participants.length === 0;
 
@@ -474,6 +610,10 @@ const selectedAssignment = selectedName ? assignments[selectedName] : null;
 	const canGenerateLink = participants.length >= 2 && !groupLocked;
 
 	const statusMessage = (() => {
+		if (isGroupLoading) {
+			return "Loading group details...";
+		}
+
 		if (!groupLocked) {
 			return "Organiser is still setting things up.";
 		}
@@ -492,7 +632,7 @@ const selectedAssignment = selectedName ? assignments[selectedName] : null;
 	return (
 		<div className="app">
 			<header className="header">
-				<h1> 🤶 Secret Santa Draw 🧑‍🎄 </h1>
+				<h1> 🤶 Secret Santa Draw</h1>
 				<p>
 					Organiser adds names, generates a private link, and everyone signs in
 					with their email to reveal their giftee.
@@ -667,7 +807,9 @@ const selectedAssignment = selectedName ? assignments[selectedName] : null;
 						onClick={handleDraw}
 						disabled={drawDisabled}
 					>
-						{selectedAssignment && selectedAssignment.email === trimmedEmail
+						{isEmailing
+							? "Sending…"
+							: selectedAssignment && selectedAssignment.email === trimmedEmail
 							? "Email me my person"
 							: "Draw my person"}
 					</button>
