@@ -6,7 +6,6 @@ const createGroupLink = () => {
 	const slug = Math.random().toString(36).slice(2, 10);
 	return `https://secretsanta.example/group/${slug}`;
 };
-
 function App() {
 	const [rawNames, setRawNames] = useState("");
 	const [participants, setParticipants] = useState([]);
