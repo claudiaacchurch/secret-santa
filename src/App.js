@@ -673,7 +673,7 @@ useEffect(() => {
 						<h2>Organiser setup</h2>
 					</div>
 					<label className="field-label" htmlFor="organiser-email">
-						Organiser email
+						Enter your email to start a group
 					</label>
 					<input
 						id="organiser-email"
@@ -685,12 +685,12 @@ useEffect(() => {
 						disabled={isGroupLoading}
 					/>
 					<label className="field-label" htmlFor="names">
-						Participant names (add one name per line)
+						Participant Names (add one name per line)
 					</label>
 					<textarea
 						id="names"
 						className="field-control"
-						placeholder="Add names here..."
+						placeholder="Add names here...\nClaudia \nXara"
 						value={rawNames}
 						onChange={(event) => setRawNames(event.target.value)}
 						rows={8}
@@ -771,7 +771,7 @@ useEffect(() => {
 						<h2>Organiser tools</h2>
 					</div>
 					<p>
-						Only the organiser can manage the roster and share codes. If that’s
+						Only the organiser can edit the participants. If that’s
 						you, unlock the tools with the organiser email.
 					</p>
 					<button className="button ghost" type="button" onClick={handleOrganiserUnlock}>
@@ -782,7 +782,7 @@ useEffect(() => {
 			)}
 				<section className="panel">
 					<div className="panel-header">
-						<h2>Participant draw</h2>
+						<h2>Draw your Giftee!</h2>
 						<p>Enter your email to claim your name.</p>
 					</div>
 					<div className="auth-group">
