@@ -43,17 +43,17 @@ function App() {
 	const [isLocking, setIsLocking] = useState(false);
 	const [isResetting, setIsResetting] = useState(false);
 	const [isEmailing, setIsEmailing] = useState(false);
-const [groupSlug, setGroupSlug] = useState(slugFromPath);
-const [isGroupLoading, setIsGroupLoading] = useState(false);
-const [organiserUnlocked, setOrganiserUnlocked] = useState(
-	slugFromPath ? false : true
-);
-const [unlockModalOpen, setUnlockModalOpen] = useState(false);
-const [unlockInput, setUnlockInput] = useState("");
-const [unlockError, setUnlockError] = useState("");
-const [newParticipant, setNewParticipant] = useState("");
-const [addParticipantError, setAddParticipantError] = useState("");
-const [resetModalOpen, setResetModalOpen] = useState(false);
+	const [groupSlug, setGroupSlug] = useState(slugFromPath);
+	const [isGroupLoading, setIsGroupLoading] = useState(false);
+	const [organiserUnlocked, setOrganiserUnlocked] = useState(
+		slugFromPath ? false : true
+	);
+	const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+	const [unlockInput, setUnlockInput] = useState("");
+	const [unlockError, setUnlockError] = useState("");
+	const [newParticipant, setNewParticipant] = useState("");
+	const [addParticipantError, setAddParticipantError] = useState("");
+	const [resetModalOpen, setResetModalOpen] = useState(false);
 
 	const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -211,9 +211,9 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 				}
 			}
 
-		setSaveMessage("Participant list saved. Generate group link to start.");
-		setNewParticipant("");
-		setAddParticipantError("");
+			setSaveMessage("Participant list saved. Generate group link to start.");
+			setNewParticipant("");
+			setAddParticipantError("");
 		} catch (error) {
 			console.error("Supabase save error", error);
 			setSaveMessage("Could not save group. Try again.");
@@ -294,10 +294,10 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 			return;
 		}
 
-	if (!groupId) {
-		setDrawMessage("Ask the organiser to refresh the page before drawing.");
-		return;
-	}
+		if (!groupId) {
+			setDrawMessage("Ask the organiser to refresh the page before drawing.");
+			return;
+		}
 
 		setIsEmailing(true);
 
@@ -484,69 +484,71 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 			return;
 		}
 
-		setDrawMessage("All set! We just emailed you the name you drew (check your junk).");
+		setDrawMessage(
+			"All set! We just emailed you the name you drew (check your junk)."
+		);
 		setIsEmailing(false);
 	};
 
-  const confirmResetGroup = async () => {
-    setIsResetting(true);
-    try {
-      if (groupId) {
-        const { error: deleteParticipantsError } = await supabase
-          .from("participants")
-          .delete()
-          .eq("group_id", groupId);
-        if (deleteParticipantsError) {
-          throw deleteParticipantsError;
-        }
-      }
+	const confirmResetGroup = async () => {
+		setIsResetting(true);
+		try {
+			if (groupId) {
+				const { error: deleteParticipantsError } = await supabase
+					.from("participants")
+					.delete()
+					.eq("group_id", groupId);
+				if (deleteParticipantsError) {
+					throw deleteParticipantsError;
+				}
+			}
 
-      setParticipants([]);
-      setAssignments({});
-      setSelectedName("");
-      setEmail("");
-      setDrawMessage("");
-      setGroupLocked(false);
-      setLockMessage("");
-      setSaveMessage("Group reset. Add names to start again.");
-      setOrganiserUnlocked(false);
-      setUnlockError("");
-      setNewParticipant("");
-      setAddParticipantError("");
-      setResetModalOpen(false);
-      setUnlockModalOpen(true);
-    } catch (error) {
-      console.error("Supabase reset error", error);
-      setSaveMessage("Could not reset group. Try again.");
-    } finally {
-      setIsResetting(false);
-    }
-  };
+			setParticipants([]);
+			setAssignments({});
+			setSelectedName("");
+			setEmail("");
+			setDrawMessage("");
+			setGroupLocked(false);
+			setLockMessage("");
+			setSaveMessage("Group reset. Add names to start again.");
+			setOrganiserUnlocked(false);
+			setUnlockError("");
+			setNewParticipant("");
+			setAddParticipantError("");
+			setResetModalOpen(false);
+			setUnlockModalOpen(true);
+		} catch (error) {
+			console.error("Supabase reset error", error);
+			setSaveMessage("Could not reset group. Try again.");
+		} finally {
+			setIsResetting(false);
+		}
+	};
 
-  const openUnlockModal = () => {
-    setUnlockInput("");
-    setUnlockError("");
-    setUnlockModalOpen(true);
-  };
+	const openUnlockModal = () => {
+		setUnlockInput("");
+		setUnlockError("");
+		setUnlockModalOpen(true);
+	};
 
-  const confirmOrganiserUnlock = () => {
-    const attempt = unlockInput.trim().toLowerCase();
-    if (!organiserEmail) {
-      setOrganiserUnlocked(true);
-      setUnlockError("");
-      setUnlockModalOpen(false);
-      return;
-    }
+	const confirmOrganiserUnlock = () => {
+		const attempt = unlockInput.trim().toLowerCase();
+		if (!organiserEmail) {
+			setOrganiserUnlocked(true);
+			setUnlockError("");
+			setUnlockModalOpen(false);
+			return;
+		}
 
-    if (attempt === organiserEmail.trim().toLowerCase()) {
-      setOrganiserUnlocked(true);
-      setUnlockError("");
-      setUnlockModalOpen(false);
-      setUnlockInput("");
-    } else {
-      setUnlockError("That email doesn't match the organiser on file.");
-    }
-  };
+		if (attempt === organiserEmail.trim().toLowerCase()) {
+			setOrganiserUnlocked(true);
+			setUnlockError("");
+			setUnlockModalOpen(false);
+			setUnlockInput("");
+		} else {
+			setUnlockError("That email doesn't match the organiser on file.");
+		}
+	};
 
 	useEffect(() => {
 		if (!trimmedEmail) {
@@ -577,12 +579,16 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 	}, [assignments, trimmedEmail, selectedName]);
 
 	useEffect(() => {
-	const slug = slugFromPath || groupSlug;
+		const slug = slugFromPath || groupSlug;
 		if (!slug) {
 			return;
 		}
 
-	if (groupId && (groupSlug === slug || (!slugFromPath && groupSlug)) && participants.length > 0) {
+		if (
+			groupId &&
+			(groupSlug === slug || (!slugFromPath && groupSlug)) &&
+			participants.length > 0
+		) {
 			return;
 		}
 
@@ -647,21 +653,21 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 				return;
 			}
 
-		if (!organiserUnlocked) {
-			setUnlockError("");
-		}
-		setGroupId(groupRow.id);
-		setGroupSlug(groupRow.slug || slug);
-		setGroupLink(`${getSiteBaseUrl()}/group/${groupRow.slug || slug}`);
-		setOrganiserEmail(groupRow.organiser_email || "");
-		setParticipants(roster);
-		setAssignments(assignmentsFromDb);
-		setNewParticipant("");
-		setAddParticipantError("");
-		setGroupLocked(true);
-		setSaveMessage("");
-		setLockMessage("Group locked. Share the link so everyone can draw.");
-		setIsGroupLoading(false);
+			if (!organiserUnlocked) {
+				setUnlockError("");
+			}
+			setGroupId(groupRow.id);
+			setGroupSlug(groupRow.slug || slug);
+			setGroupLink(`${getSiteBaseUrl()}/group/${groupRow.slug || slug}`);
+			setOrganiserEmail(groupRow.organiser_email || "");
+			setParticipants(roster);
+			setAssignments(assignmentsFromDb);
+			setNewParticipant("");
+			setAddParticipantError("");
+			setGroupLocked(true);
+			setSaveMessage("");
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setIsGroupLoading(false);
 		};
 
 		loadGroup();
@@ -694,7 +700,8 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 		groupLocked ||
 		Object.keys(assignments).length > 0;
 
-	const canGenerateLink = participants.length >= 2 && !groupLocked && !isGroupLoading;
+	const canGenerateLink =
+		participants.length >= 2 && !groupLocked && !isGroupLoading;
 
 	const statusMessage = (() => {
 		if (isGroupLoading) {
@@ -722,89 +729,91 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 				<h1> 🤶 Secret Santa Draw</h1>
 			</header>
 			<main className="panels">
-		{organiserUnlocked ? (
-			<section className="panel">
-				<div className="panel-header">
-					<h2>Get Started</h2>
-				</div>
-				<label className="field-label" htmlFor="organiser-email">
-					To start the draw, enter your email as the organiser.
-				</label>
-				<input
-					id="organiser-email"
-					className="field-control"
-					type="email"
-					placeholder="organiser@email.com"
-					value={organiserEmail}
-					onChange={(event) => setOrganiserEmail(event.target.value)}
-					disabled={isGroupLoading}
-				/>
-				<label className="field-label" htmlFor="participant-name">
-					Add everyone's names, including your own:
-				</label>
-				<div className="add-participant-row">
-					<input
-						id="participant-name"
-						className="field-control"
-						placeholder="e.g. Priya Patel"
-						value={newParticipant}
-						onChange={(event) => {
-							setNewParticipant(event.target.value);
-							setAddParticipantError("");
-						}}
-						onKeyDown={(event) => {
-							if (event.key === "Enter") {
-								event.preventDefault();
-								handleAddParticipant();
-							}
-						}}
-						disabled={groupLocked || isGroupLoading}
-					/>
-						<button
-							className="button primary"
-							type="button"
-							onClick={handleAddParticipant}
-							disabled={groupLocked || isGroupLoading || !newParticipant.trim()}
-						>
-							Add
-						</button>
-				</div>
-				{addParticipantError ? (
-					<div className="status error">{addParticipantError}</div>
-				) : null}
-					<div className="group-actions">
-						<button
-							className="button primary"
-							type="button"
-							onClick={handleSaveList}
-							disabled={groupLocked || isSaving || isGroupLoading}
-						>
-							{isSaving ? "Saving…" : "Save list"}
-						</button>
-						<button
-							className="button secondary"
-							type="button"
-							onClick={handleGenerateGroupLink}
-							disabled={
-								(!groupLocked && !canGenerateLink) ||
-								isLocking ||
-								isGroupLoading
-							}
-						>
-							{groupLocked
-								? "Share group link"
-								: isLocking
-								? "Generating…"
-								: "Generate group link"}
-						</button>
-						<button
-							className="button ghost"
-							type="button"
-							onClick={() => setResetModalOpen(true)}
-							disabled={!canReset || isResetting}
-						>
-							{isResetting ? "Resetting…" : "Reset group"}
-						</button>
+				{organiserUnlocked ? (
+					<section className="panel">
+						<div className="panel-header">
+							<h2>Get Started</h2>
+						</div>
+						<label className="field-label" htmlFor="organiser-email">
+							To start the draw, enter your email as the organiser.
+						</label>
+						<input
+							id="organiser-email"
+							className="field-control"
+							type="email"
+							placeholder="organiser@email.com"
+							value={organiserEmail}
+							onChange={(event) => setOrganiserEmail(event.target.value)}
+							disabled={isGroupLoading}
+						/>
+						<label className="field-label" htmlFor="participant-name">
+							Add everyone's names (and your own):
+						</label>
+						<div className="add-participant-row">
+							<input
+								id="participant-name"
+								className="field-control"
+								placeholder="e.g. Claudia Church"
+								value={newParticipant}
+								onChange={(event) => {
+									setNewParticipant(event.target.value);
+									setAddParticipantError("");
+								}}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										handleAddParticipant();
+									}
+								}}
+								disabled={groupLocked || isGroupLoading}
+							/>
+							<button
+								className="button primary"
+								type="button"
+								onClick={handleAddParticipant}
+								disabled={
+									groupLocked || isGroupLoading || !newParticipant.trim()
+								}
+							>
+								Add
+							</button>
+						</div>
+						{addParticipantError ? (
+							<div className="status error">{addParticipantError}</div>
+						) : null}
+						<div className="group-actions">
+							<button
+								className="button primary"
+								type="button"
+								onClick={handleSaveList}
+								disabled={groupLocked || isSaving || isGroupLoading}
+							>
+								{isSaving ? "Saving…" : "Save list"}
+							</button>
+							<button
+								className="button secondary"
+								type="button"
+								onClick={handleGenerateGroupLink}
+								disabled={
+									(!groupLocked && !canGenerateLink) ||
+									isLocking ||
+									isGroupLoading
+								}
+							>
+								{groupLocked
+									? "Share group link"
+									: isLocking
+									? "Generating…"
+									: "Generate group link"}
+							</button>
+							<button
+								className="button ghost"
+								type="button"
+								onClick={() => setResetModalOpen(true)}
+								disabled={!canReset || isResetting}
+							>
+								{isResetting ? "Resetting…" : "Reset group"}
+							</button>
 						</div>
 						{saveMessage ? <div className="status">{saveMessage}</div> : null}
 						{lockMessage ? <div className="status">{lockMessage}</div> : null}
@@ -817,68 +826,68 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 								</p>
 							</div>
 						) : null}
-					<div className="names-preview" aria-live="polite">
-						<p>{participantCountLabel}</p>
-						{participants.length > 0 ? (
-							<ul>
-								{participants.map((name) => {
-									const assignment = assignments[name];
-									const claimed = Boolean(assignment);
-									return (
-										<li key={name}>
-											<div className="name-main">
-												<span>{name}</span>
-												<span
-													className={`name-tag${
-														claimed ? " claimed" : " pending"
-													}`}
-												>
-													{claimed ? "claimed" : "waiting"}
-												</span>
-												{!groupLocked ? (
-													<button
-														type="button"
-														className="remove-name"
-														onClick={() => handleRemoveParticipant(name)}
+						<div className="names-preview" aria-live="polite">
+							<p>{participantCountLabel}</p>
+							{participants.length > 0 ? (
+								<ul>
+									{participants.map((name) => {
+										const assignment = assignments[name];
+										const claimed = Boolean(assignment);
+										return (
+											<li key={name}>
+												<div className="name-main">
+													<span>{name}</span>
+													<span
+														className={`name-tag${
+															claimed ? " claimed" : " pending"
+														}`}
 													>
-														Remove
-													</button>
-												) : null}
-											</div>
-										</li>
-									);
-								})}
-							</ul>
-						) : (
-							<p className="names-empty">
-								No one added yet. Add names above to build your roster.
-							</p>
-						)}
-					</div>
+														{claimed ? "claimed" : "waiting"}
+													</span>
+													{!groupLocked ? (
+														<button
+															type="button"
+															className="remove-name"
+															onClick={() => handleRemoveParticipant(name)}
+														>
+															Remove
+														</button>
+													) : null}
+												</div>
+											</li>
+										);
+									})}
+								</ul>
+							) : (
+								<p className="names-empty">
+									No one added yet. Add names above to build your roster.
+								</p>
+							)}
+						</div>
 						<div className="info">
 							Once the group link is generated, the list freezes. You can still
 							check who has drawn, but changes require a reset.
 						</div>
 					</section>
 				) : (
-				<section className="panel organiser-locked">
-					<div className="panel-header">
-						<h2>Draw Already Started</h2>
-					</div>
-					<p>
-						Only the organiser can edit the participants. If that’s you,
-						unlock the tools with the organiser email.
-					</p>
-					<button
-						className="button ghost"
-						type="button"
-						onClick={openUnlockModal}
-					>
-						I'm the organiser
-					</button>
-				</section>
-			)}
-			<section className="panel">
+					<section className="panel organiser-locked">
+						<div className="panel-header">
+							<h2>Draw Already Started</h2>
+						</div>
+						<p>
+							Only the organiser can edit the participants. If that’s you,
+							unlock the tools with the organiser email.
+						</p>
+						<button
+							className="button ghost"
+							type="button"
+							onClick={openUnlockModal}
+						>
+							I'm the organiser
+						</button>
+					</section>
+				)}
+				<section className="panel">
 					<div className="panel-header">
 						<h2>Draw your Giftee!</h2>
 						<p>Enter your email to claim your name.</p>
@@ -958,78 +967,81 @@ const [resetModalOpen, setResetModalOpen] = useState(false);
 					</button>
 					<div className="draw-status">{drawMessage || statusMessage}</div>
 				</section>
-	</main>
-	{unlockModalOpen && (
-		<div className="modal-backdrop" role="dialog" aria-modal="true">
-			<div className="modal">
-				<h3>Unlock organiser tools</h3>
-				<p className="modal-copy">
-					Enter the organiser email to unlock edits for this group.
-				</p>
-				<input
-					type="email"
-					className="field-control"
-					placeholder="organiser@email.com"
-					value={unlockInput}
-					onChange={(event) => {
-						setUnlockInput(event.target.value);
-						setUnlockError("");
-					}}
-					autoFocus
-				/>
-				{unlockError ? <div className="status error">{unlockError}</div> : null}
-				<div className="modal-actions">
-					<button
-						className="button secondary"
-						type="button"
-						onClick={confirmOrganiserUnlock}
-					>
-						Unlock
-					</button>
-					<button
-						className="button ghost"
-						type="button"
-						onClick={() => {
-							setUnlockModalOpen(false);
-							setUnlockInput("");
-							setUnlockError("");
-						}}
-					>
-						Cancel
-					</button>
+			</main>
+			{unlockModalOpen && (
+				<div className="modal-backdrop" role="dialog" aria-modal="true">
+					<div className="modal">
+						<h3>Unlock organiser tools</h3>
+						<p className="modal-copy">
+							Enter the organiser email to unlock edits for this group.
+						</p>
+						<input
+							type="email"
+							className="field-control"
+							placeholder="organiser@email.com"
+							value={unlockInput}
+							onChange={(event) => {
+								setUnlockInput(event.target.value);
+								setUnlockError("");
+							}}
+							autoFocus
+						/>
+						{unlockError ? (
+							<div className="status error">{unlockError}</div>
+						) : null}
+						<div className="modal-actions">
+							<button
+								className="button secondary"
+								type="button"
+								onClick={confirmOrganiserUnlock}
+							>
+								Unlock
+							</button>
+							<button
+								className="button ghost"
+								type="button"
+								onClick={() => {
+									setUnlockModalOpen(false);
+									setUnlockInput("");
+									setUnlockError("");
+								}}
+							>
+								Cancel
+							</button>
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
-	)}
-	{resetModalOpen && (
-		<div className="modal-backdrop" role="dialog" aria-modal="true">
-			<div className="modal">
-				<h3>Reset this group?</h3>
-				<p className="modal-copy">
-					This clears the roster and all assignments. Participants will need to draw again.
-				</p>
-				<div className="modal-actions">
-					<button
-						className="button secondary"
-						type="button"
-						onClick={confirmResetGroup}
-						disabled={isResetting}
-					>
-						{isResetting ? "Resetting…" : "Yes, reset"}
-					</button>
-					<button
-						className="button ghost"
-						type="button"
-						onClick={() => setResetModalOpen(false)}
-						disabled={isResetting}
-					>
-						Cancel
-					</button>
+			)}
+			{resetModalOpen && (
+				<div className="modal-backdrop" role="dialog" aria-modal="true">
+					<div className="modal">
+						<h3>Reset this group?</h3>
+						<p className="modal-copy">
+							This clears the roster and all assignments. Participants will need
+							to draw again.
+						</p>
+						<div className="modal-actions">
+							<button
+								className="button secondary"
+								type="button"
+								onClick={confirmResetGroup}
+								disabled={isResetting}
+							>
+								{isResetting ? "Resetting…" : "Yes, reset"}
+							</button>
+							<button
+								className="button ghost"
+								type="button"
+								onClick={() => setResetModalOpen(false)}
+								disabled={isResetting}
+							>
+								Cancel
+							</button>
+						</div>
+					</div>
 				</div>
-			</div>
+			)}
 		</div>
-	)}
-	</div>
 	);
 }
 
