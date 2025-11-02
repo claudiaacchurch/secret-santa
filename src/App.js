@@ -18,13 +18,11 @@ function App() {
 	const [drawMessage, setDrawMessage] = useState("");
 	const [groupLocked, setGroupLocked] = useState(false);
 	const [groupLink, setGroupLink] = useState("");
-	const [revealed, setRevealed] = useState(false);
 	const [organiserEmail, setOrganiserEmail] = useState("");
 	const [groupId, setGroupId] = useState(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isLocking, setIsLocking] = useState(false);
 	const [isResetting, setIsResetting] = useState(false);
-	const [hasSavedRoster, setHasSavedRoster] = useState(false);
 
 	const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
@@ -71,9 +69,7 @@ function App() {
 		setGroupLink("");
 		setGroupLocked(false);
 		setLockMessage("");
-		setRevealed(false);
-
-		if (uniqueNames.length === 0) {
+	if (uniqueNames.length === 0) {
 			setSaveMessage("No names captured. Add at least one participant.");
 			return;
 		}
@@ -134,8 +130,7 @@ function App() {
 				}
 			}
 
-			setHasSavedRoster(true);
-			setSaveMessage("Participant list saved. Generate group link to start.");
+	setSaveMessage("Participant list saved. Generate group link to start.");
 		} catch (error) {
 			console.error("Supabase save error", error);
 			setSaveMessage("Could not save group. Try again.");
@@ -178,11 +173,10 @@ function App() {
 				throw response.error;
 			}
 
-			setGroupLink(link);
-			setGroupLocked(true);
-			setLockMessage("Group locked. Share the link so everyone can draw.");
-			setSaveMessage("");
-			setHasSavedRoster(false);
+		setGroupLink(link);
+		setGroupLocked(true);
+		setLockMessage("Group locked. Share the link so everyone can draw.");
+		setSaveMessage("");
 		} catch (error) {
 			console.error("Supabase lock error", error);
 			setLockMessage("Could not lock group. Try again.");
@@ -278,20 +272,46 @@ function App() {
 				console.error("Supabase update email error", updateError);
 			}
 
-			const updatedAssignment = {
+			const refreshedAssignment = {
 				...existingAssignment,
 				email: trimmedEmail,
 			};
-			mergedAssignments[selectedName] = updatedAssignment;
+			mergedAssignments[selectedName] = refreshedAssignment;
 			setAssignments((current) => ({
 				...current,
-				[selectedName]: updatedAssignment,
+				[selectedName]: refreshedAssignment,
 			}));
 
-			setDrawMessage(
-				"You already drew. Check your email from 'Secret Santa' for the details."
-			);
-			setRevealed(false);
+			try {
+				const { data: emailResult, error: emailError } =
+					await supabase.functions.invoke("send_giftee_email", {
+						body: {
+							groupId,
+							gifterName: selectedName,
+							gifteeName: refreshedAssignment.giftee,
+							email: trimmedEmail,
+						},
+					});
+
+				if (emailError || emailResult?.error) {
+					console.error(
+						"Supabase email function error",
+						emailError || emailResult?.error
+					);
+					setDrawMessage(
+						"We found your draw but couldn't send the email. Ask the organiser to resend."
+					);
+					return;
+				}
+			} catch (invokeError) {
+				console.error("Supabase email function exception", invokeError);
+				setDrawMessage(
+					"We found your draw but couldn't send the email. Ask the organiser to resend."
+				);
+				return;
+			}
+
+			setDrawMessage("We just resent your match to your email.");
 			return;
 		}
 
@@ -366,8 +386,7 @@ function App() {
 			return;
 		}
 
-		setDrawMessage("All set! We just emailed you the name you drew.");
-		setRevealed(false);
+	setDrawMessage("All set! We just emailed you the name you drew.");
 	};
 
 	const handleResetGroup = async () => {
@@ -396,13 +415,11 @@ function App() {
 			setRawNames("");
 			setSelectedName("");
 			setEmail("");
-			setDrawMessage("");
-			setGroupLocked(false);
-			setGroupLink("");
-			setRevealed(false);
-			setLockMessage("");
-			setHasSavedRoster(false);
-			setSaveMessage("Group reset. Add names to start again.");
+		setDrawMessage("");
+		setGroupLocked(false);
+		setGroupLink("");
+		setLockMessage("");
+		setSaveMessage("Group reset. Add names to start again.");
 			setOrganiserEmail("");
 			setGroupId(null);
 		} catch (error) {
@@ -441,11 +458,7 @@ function App() {
 		});
 	}, [assignments, trimmedEmail, selectedName]);
 
-	useEffect(() => {
-		setRevealed(false);
-	}, [selectedName, trimmedEmail]);
-
-	const selectedAssignment = selectedName ? assignments[selectedName] : null;
+const selectedAssignment = selectedName ? assignments[selectedName] : null;
 
 	const drawDisabled =
 		!groupLocked || participants.length < 2 || !selectedName || !trimmedEmail;
