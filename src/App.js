@@ -903,6 +903,9 @@ function App() {
 				<section className="panel">
 					<div className="panel-header">
 						<h2>Draw your Giftee!</h2>
+            <br/>
+            <b>Buget £25</b>
+             <br/>
 						<p>Enter your email to claim your name.</p>
 					</div>
 					<div className="auth-group">
