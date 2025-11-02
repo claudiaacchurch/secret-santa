@@ -46,7 +46,9 @@ function App() {
 	const [isEmailing, setIsEmailing] = useState(false);
 	const [groupSlug, setGroupSlug] = useState(slugFromPath);
 	const [isGroupLoading, setIsGroupLoading] = useState(false);
-	const [organiserUnlocked, setOrganiserUnlocked] = useState(slugFromPath ? false : true);
+	const [organiserUnlocked, setOrganiserUnlocked] = useState(
+		slugFromPath ? false : true
+	);
 	const [unlockError, setUnlockError] = useState("");
 
 	const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
@@ -199,16 +201,16 @@ function App() {
 				throw response.error;
 			}
 
-		setGroupSlug(slug);
-		setGroupLink(url);
-		setGroupLocked(true);
-		setLockMessage("Group locked. Share the link so everyone can draw.");
-		setSaveMessage("");
-		if (typeof window !== "undefined") {
-			window.history.replaceState({}, "Secret Santa", `/group/${slug}`);
-		}
-		setOrganiserUnlocked(true);
-		setUnlockError("");
+			setGroupSlug(slug);
+			setGroupLink(url);
+			setGroupLocked(true);
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setSaveMessage("");
+			if (typeof window !== "undefined") {
+				window.history.replaceState({}, "Secret Santa", `/group/${slug}`);
+			}
+			setOrganiserUnlocked(true);
+			setUnlockError("");
 		} catch (error) {
 			console.error("Supabase lock error", error);
 			setLockMessage("Could not lock group. Try again.");
@@ -460,17 +462,17 @@ function App() {
 			setEmail("");
 			setDrawMessage("");
 			setGroupLocked(false);
-		setGroupLink("");
-		setGroupSlug("");
-		setLockMessage("");
-		setSaveMessage("Group reset. Add names to start again.");
-		setOrganiserEmail("");
-		setGroupId(null);
-		setOrganiserUnlocked(true);
-		setUnlockError("");
-		if (typeof window !== "undefined") {
-			window.history.replaceState({}, "Secret Santa", "/");
-		}
+			setGroupLink("");
+			setGroupSlug("");
+			setLockMessage("");
+			setSaveMessage("Group reset. Add names to start again.");
+			setOrganiserEmail("");
+			setGroupId(null);
+			setOrganiserUnlocked(true);
+			setUnlockError("");
+			if (typeof window !== "undefined") {
+				window.history.replaceState({}, "Secret Santa", "/");
+			}
 		} catch (error) {
 			console.error("Supabase reset error", error);
 			setSaveMessage("Could not reset group. Try again.");
@@ -486,7 +488,9 @@ function App() {
 			return;
 		}
 
-		const attempt = window.prompt("Enter the organiser email to manage this group:");
+		const attempt = window.prompt(
+			"Enter the organiser email to manage this group:"
+		);
 		if (attempt === null) {
 			return;
 		}
@@ -527,95 +531,105 @@ function App() {
 		});
 	}, [assignments, trimmedEmail, selectedName]);
 
-useEffect(() => {
-	const slug = groupSlug || slugFromPath;
-	if (!slug) {
-		return;
-	}
-
-	if (groupId && groupSlug === slug && participants.length > 0) {
-		return;
-	}
-
-	let isCancelled = false;
-
-	const loadGroup = async () => {
-		setIsGroupLoading(true);
-
-		const { data: groupRow, error: groupError } = await supabase
-			.from("groups")
-			.select("id, organiser_email, slug")
-			.eq("slug", slug)
-			.maybeSingle();
-
-		if (groupError || !groupRow) {
-			if (!isCancelled) {
-				setLockMessage(
-					"We couldn't find that group. Ask your organiser for a fresh link."
-				);
-			}
-			setIsGroupLoading(false);
+	useEffect(() => {
+		const slug = groupSlug || slugFromPath;
+		if (!slug) {
 			return;
 		}
 
-		const { data: participantRows, error: participantsError } = await supabase
-			.from("participants")
-			.select("name, email, giftee_name, drawn_at")
-			.eq("group_id", groupRow.id)
-			.order("name", { ascending: true });
-
-		if (participantsError) {
-			console.error("Supabase participants fetch error", participantsError);
-			if (!isCancelled) {
-				setLockMessage("We couldn't load participants right now. Try refreshing.");
-			}
-			setIsGroupLoading(false);
+		if (groupId && groupSlug === slug && participants.length > 0) {
 			return;
 		}
 
-		const roster = (participantRows ?? []).map((participant) => participant.name);
-		const assignmentsFromDb = {};
+		let isCancelled = false;
 
-		(participantRows ?? []).forEach((participant) => {
-			if (!participant.giftee_name) {
+		const loadGroup = async () => {
+			setIsGroupLoading(true);
+
+			const { data: groupRow, error: groupError } = await supabase
+				.from("groups")
+				.select("id, organiser_email, slug")
+				.eq("slug", slug)
+				.maybeSingle();
+
+			if (groupError || !groupRow) {
+				if (!isCancelled) {
+					setLockMessage(
+						"We couldn't find that group. Ask your organiser for a fresh link."
+					);
+				}
+				setIsGroupLoading(false);
 				return;
 			}
 
-			assignmentsFromDb[participant.name] = {
-				giftee: participant.giftee_name,
-				email: participant.email || "",
-				timestamp: participant.drawn_at
-					? new Date(participant.drawn_at).getTime()
-					: Date.now(),
-			};
-		});
+			const { data: participantRows, error: participantsError } = await supabase
+				.from("participants")
+				.select("name, email, giftee_name, drawn_at")
+				.eq("group_id", groupRow.id)
+				.order("name", { ascending: true });
 
-		if (isCancelled) {
-			return;
-		}
+			if (participantsError) {
+				console.error("Supabase participants fetch error", participantsError);
+				if (!isCancelled) {
+					setLockMessage(
+						"We couldn't load participants right now. Try refreshing."
+					);
+				}
+				setIsGroupLoading(false);
+				return;
+			}
 
-		if (!organiserUnlocked) {
-			setUnlockError("");
-		}
-		setGroupId(groupRow.id);
-		setGroupSlug(groupRow.slug || slug);
-		setGroupLink(`${getSiteBaseUrl()}/group/${groupRow.slug || slug}`);
-		setOrganiserEmail(groupRow.organiser_email || "");
-		setParticipants(roster);
-		setAssignments(assignmentsFromDb);
-		setRawNames(roster.join("\n"));
-		setGroupLocked(true);
-		setSaveMessage("");
-		setLockMessage("Group locked. Share the link so everyone can draw.");
-		setIsGroupLoading(false);
-	};
+			const roster = (participantRows ?? []).map(
+				(participant) => participant.name
+			);
+			const assignmentsFromDb = {};
 
-	loadGroup();
+			(participantRows ?? []).forEach((participant) => {
+				if (!participant.giftee_name) {
+					return;
+				}
 
-	return () => {
-		isCancelled = true;
-	};
-}, [groupSlug, slugFromPath, groupId, participants.length, organiserUnlocked]);
+				assignmentsFromDb[participant.name] = {
+					giftee: participant.giftee_name,
+					email: participant.email || "",
+					timestamp: participant.drawn_at
+						? new Date(participant.drawn_at).getTime()
+						: Date.now(),
+				};
+			});
+
+			if (isCancelled) {
+				return;
+			}
+
+			if (!organiserUnlocked) {
+				setUnlockError("");
+			}
+			setGroupId(groupRow.id);
+			setGroupSlug(groupRow.slug || slug);
+			setGroupLink(`${getSiteBaseUrl()}/group/${groupRow.slug || slug}`);
+			setOrganiserEmail(groupRow.organiser_email || "");
+			setParticipants(roster);
+			setAssignments(assignmentsFromDb);
+			setRawNames(roster.join("\n"));
+			setGroupLocked(true);
+			setSaveMessage("");
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setIsGroupLoading(false);
+		};
+
+		loadGroup();
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [
+		groupSlug,
+		slugFromPath,
+		groupId,
+		participants.length,
+		organiserUnlocked,
+	]);
 
 	const selectedAssignment = selectedName ? assignments[selectedName] : null;
 
@@ -626,7 +640,8 @@ useEffect(() => {
 		!trimmedEmail ||
 		isGroupLoading;
 
-	const selectDisabled = !groupLocked || participants.length === 0 || isGroupLoading;
+	const selectDisabled =
+		!groupLocked || participants.length === 0 || isGroupLoading;
 
 	const canReset =
 		participants.length > 0 ||
@@ -666,120 +681,134 @@ useEffect(() => {
 					with their email to reveal their giftee.
 				</p>
 			</header>
-		<main className="panels">
-			{organiserUnlocked ? (
-				<section className="panel">
-					<div className="panel-header">
-						<h2>Organiser setup</h2>
-					</div>
-					<label className="field-label" htmlFor="organiser-email">
-						Enter your email to start a group
-					</label>
-					<input
-						id="organiser-email"
-						className="field-control"
-						type="email"
-						placeholder="organiser@email.com"
-						value={organiserEmail}
-						onChange={(event) => setOrganiserEmail(event.target.value)}
-						disabled={isGroupLoading}
-					/>
-					<label className="field-label" htmlFor="names">
-						Participant Names (add one name per line)
-					</label>
-					<textarea
-						id="names"
-						className="field-control"
-						placeholder="Add names here...\nClaudia \nXara"
-						value={rawNames}
-						onChange={(event) => setRawNames(event.target.value)}
-						rows={8}
-						disabled={groupLocked || isGroupLoading}
-					/>
-					<div className="group-actions">
-						<button
-							className="button primary"
-							type="button"
-							onClick={handleSaveList}
-							disabled={groupLocked || isSaving || isGroupLoading}
-						>
-							{isSaving ? "Saving…" : "Save list"}
-						</button>
-						<button
-							className="button secondary"
-							type="button"
-							onClick={handleGenerateGroupLink}
-							disabled={(!groupLocked && !canGenerateLink) || isLocking || isGroupLoading}
-						>
-							{groupLocked
-								? "Share group link"
-								: isLocking
-								? "Generating…"
-								: "Generate group link"}
-						</button>
+			<main className="panels">
+				{organiserUnlocked ? (
+					<section className="panel">
+						<div className="panel-header">
+							<h2>Organiser setup</h2>
+						</div>
+						<label className="field-label" htmlFor="organiser-email">
+							Enter your email to start a group
+						</label>
+						<input
+							id="organiser-email"
+							className="field-control"
+							type="email"
+							placeholder="organiser@email.com"
+							value={organiserEmail}
+							onChange={(event) => setOrganiserEmail(event.target.value)}
+							disabled={isGroupLoading}
+						/>
+						<label className="field-label" htmlFor="names">
+							Participant Names (add one name per line)
+						</label>
+						<textarea
+							id="names"
+							className="field-control"
+							placeholder={`Add names here...
+            Claudia
+            Xara`}
+							value={rawNames}
+							onChange={(event) => setRawNames(event.target.value)}
+							rows={8}
+							disabled={groupLocked || isGroupLoading}
+						/>
+						<div className="group-actions">
+							<button
+								className="button primary"
+								type="button"
+								onClick={handleSaveList}
+								disabled={groupLocked || isSaving || isGroupLoading}
+							>
+								{isSaving ? "Saving…" : "Save list"}
+							</button>
+							<button
+								className="button secondary"
+								type="button"
+								onClick={handleGenerateGroupLink}
+								disabled={
+									(!groupLocked && !canGenerateLink) ||
+									isLocking ||
+									isGroupLoading
+								}
+							>
+								{groupLocked
+									? "Share group link"
+									: isLocking
+									? "Generating…"
+									: "Generate group link"}
+							</button>
+							<button
+								className="button ghost"
+								type="button"
+								onClick={handleResetGroup}
+								disabled={!canReset || isResetting}
+							>
+								{isResetting ? "Resetting…" : "Reset group"}
+							</button>
+						</div>
+						{saveMessage ? <div className="status">{saveMessage}</div> : null}
+						{lockMessage ? <div className="status">{lockMessage}</div> : null}
+						{groupLink ? (
+							<div className="group-link">
+								<span>Group link</span>
+								<code>{groupLink}</code>
+								<p>
+									Send this URL to everyone participating to draw their name.
+								</p>
+							</div>
+						) : null}
+						<div className="names-preview" aria-live="polite">
+							<p>{participantCountLabel}</p>
+							{participants.length > 0 ? (
+								<ul>
+									{participants.map((name) => {
+										const assignment = assignments[name];
+										const claimed = Boolean(assignment);
+										return (
+											<li key={name}>
+												<div className="name-main">
+													<span>{name}</span>
+													<span
+														className={`name-tag${
+															claimed ? " claimed" : " pending"
+														}`}
+													>
+														{claimed ? "claimed" : "waiting"}
+													</span>
+												</div>
+											</li>
+										);
+									})}
+								</ul>
+							) : null}
+						</div>
+						<div className="info">
+							Once the group link is generated, the list freezes. You can still
+							check who has drawn, but changes require a reset.
+						</div>
+					</section>
+				) : (
+					<section className="panel organiser-locked">
+						<div className="panel-header">
+							<h2>Organiser tools</h2>
+						</div>
+						<p>
+							Only the organiser can edit the participants. If that’s you,
+							unlock the tools with the organiser email.
+						</p>
 						<button
 							className="button ghost"
 							type="button"
-							onClick={handleResetGroup}
-							disabled={!canReset || isResetting}
+							onClick={handleOrganiserUnlock}
 						>
-							{isResetting ? "Resetting…" : "Reset group"}
+							I'm the organiser
 						</button>
-					</div>
-					{saveMessage ? <div className="status">{saveMessage}</div> : null}
-					{lockMessage ? <div className="status">{lockMessage}</div> : null}
-					{groupLink ? (
-						<div className="group-link">
-							<span>Group link</span>
-							<code>{groupLink}</code>
-							<p>Send this URL to everyone participating to draw their name.</p>
-						</div>
-					) : null}
-					<div className="names-preview" aria-live="polite">
-						<p>{participantCountLabel}</p>
-						{participants.length > 0 ? (
-							<ul>
-								{participants.map((name) => {
-									const assignment = assignments[name];
-									const claimed = Boolean(assignment);
-									return (
-										<li key={name}>
-											<div className="name-main">
-												<span>{name}</span>
-												<span
-													className={`name-tag${
-														claimed ? " claimed" : " pending"
-													}`}
-												>
-													{claimed ? "claimed" : "waiting"}
-												</span>
-											</div>
-										</li>
-									);
-								})}
-							</ul>
+						{unlockError ? (
+							<div className="status error">{unlockError}</div>
 						) : null}
-					</div>
-					<div className="info">
-						Once the group link is generated, the list freezes. You can still
-						check who has drawn, but changes require a reset.
-					</div>
-				</section>
-			) : (
-				<section className="panel organiser-locked">
-					<div className="panel-header">
-						<h2>Organiser tools</h2>
-					</div>
-					<p>
-						Only the organiser can edit the participants. If that’s
-						you, unlock the tools with the organiser email.
-					</p>
-					<button className="button ghost" type="button" onClick={handleOrganiserUnlock}>
-						I'm the organiser
-					</button>
-					{unlockError ? <div className="status error">{unlockError}</div> : null}
-				</section>
-			)}
+					</section>
+				)}
 				<section className="panel">
 					<div className="panel-header">
 						<h2>Draw your Giftee!</h2>
@@ -846,16 +875,16 @@ useEffect(() => {
 							</select>
 						</div>
 					</div>
-		<button
-			className="button secondary"
-			type="button"
-			onClick={handleDraw}
-			disabled={drawDisabled || isEmailing}
-		>
-			{isEmailing
-				? "Sending…"
-				: selectedAssignment && selectedAssignment.email === trimmedEmail
-				? "Email me my person"
+					<button
+						className="button secondary"
+						type="button"
+						onClick={handleDraw}
+						disabled={drawDisabled || isEmailing}
+					>
+						{isEmailing
+							? "Sending…"
+							: selectedAssignment && selectedAssignment.email === trimmedEmail
+							? "Email me my person"
 							: "Draw my person"}
 					</button>
 					<div className="draw-status">{drawMessage || statusMessage}</div>
