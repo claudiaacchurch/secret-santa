@@ -1,25 +1,681 @@
-import logo from './logo.svg';
-import './App.css';
+import { useEffect, useMemo, useState } from "react";
+import "./App.css";
+import { supabase } from "./supabaseClient";
+
+const createGroupLink = () => {
+	const slug = Math.random().toString(36).slice(2, 10);
+	return `https://secretsanta.example/group/${slug}`;
+};
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+	const [rawNames, setRawNames] = useState("");
+	const [participants, setParticipants] = useState([]);
+	const [assignments, setAssignments] = useState({});
+	const [saveMessage, setSaveMessage] = useState("");
+	const [lockMessage, setLockMessage] = useState("");
+	const [selectedName, setSelectedName] = useState("");
+	const [email, setEmail] = useState("");
+	const [drawMessage, setDrawMessage] = useState("");
+	const [groupLocked, setGroupLocked] = useState(false);
+	const [groupLink, setGroupLink] = useState("");
+	const [revealed, setRevealed] = useState(false);
+	const [organiserEmail, setOrganiserEmail] = useState("");
+	const [groupId, setGroupId] = useState(null);
+	const [isSaving, setIsSaving] = useState(false);
+	const [isLocking, setIsLocking] = useState(false);
+	const [isResetting, setIsResetting] = useState(false);
+	const [hasSavedRoster, setHasSavedRoster] = useState(false);
+
+	const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
+
+	const participantCountLabel = useMemo(() => {
+		if (participants.length === 0) {
+			return "Nobody added yet";
+		}
+
+		if (participants.length === 1) {
+			return "1 person added";
+		}
+
+		return `${participants.length} people added`;
+	}, [participants.length]);
+
+	const handleSaveList = async () => {
+		if (groupLocked) {
+			setSaveMessage("The list is locked. Reset the event to make changes.");
+			return;
+		}
+
+		if (!organiserEmail.trim()) {
+			setSaveMessage("Please add an organiser email before saving.");
+			return;
+		}
+
+		const lines = rawNames
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.filter(Boolean);
+
+		const uniqueNames = [];
+		lines.forEach((name) => {
+			if (!uniqueNames.includes(name)) {
+				uniqueNames.push(name);
+			}
+		});
+
+		setParticipants(uniqueNames);
+		setAssignments({});
+		setSelectedName("");
+		setEmail("");
+		setDrawMessage("");
+		setGroupLink("");
+		setGroupLocked(false);
+		setLockMessage("");
+		setRevealed(false);
+
+		if (uniqueNames.length === 0) {
+			setSaveMessage("No names captured. Add at least one participant.");
+			return;
+		}
+
+		setIsSaving(true);
+		try {
+			let response;
+
+			if (groupId) {
+				response = await supabase
+					.from("groups")
+					.update({ organiser_email: organiserEmail.trim() })
+					.eq("id", groupId)
+					.select()
+					.maybeSingle();
+			} else {
+				response = await supabase
+					.from("groups")
+					.insert({ organiser_email: organiserEmail.trim() })
+					.select()
+					.maybeSingle();
+			}
+
+			if (response.error) {
+				throw response.error;
+			}
+
+			const currentGroupId = response.data?.id || groupId;
+
+			if (!currentGroupId) {
+				throw new Error("No group ID returned from Supabase.");
+			}
+
+			setGroupId(currentGroupId);
+
+			// Refresh participants for this group: remove old entries, insert new roster
+			const deleteResponse = await supabase
+				.from("participants")
+				.delete()
+				.eq("group_id", currentGroupId);
+
+			if (deleteResponse.error) {
+				throw deleteResponse.error;
+			}
+
+			const inserts = uniqueNames.map((name) => ({
+				group_id: currentGroupId,
+				name,
+			}));
+
+			if (inserts.length > 0) {
+				const insertResponse = await supabase
+					.from("participants")
+					.insert(inserts);
+
+				if (insertResponse.error) {
+					throw insertResponse.error;
+				}
+			}
+
+			setHasSavedRoster(true);
+			setSaveMessage("Participant list saved. Generate group link to start.");
+		} catch (error) {
+			console.error("Supabase save error", error);
+			setSaveMessage("Could not save group. Try again.");
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	const handleGenerateGroupLink = async () => {
+		if (!canGenerateLink && !groupLocked) {
+			setLockMessage(
+				"Save at least two names before generating the group link."
+			);
+			return;
+		}
+
+		if (groupLocked) {
+			setLockMessage("Group is already locked. Share the link below.");
+			return;
+		}
+
+		if (!groupId) {
+			setLockMessage("Save the list before generating the link.");
+			return;
+		}
+
+		setIsLocking(true);
+		const link = createGroupLink();
+		const slug = link.split("/").pop();
+
+		try {
+			const response = await supabase
+				.from("groups")
+				.update({ slug })
+				.eq("id", groupId)
+				.select()
+				.maybeSingle();
+
+			if (response.error) {
+				throw response.error;
+			}
+
+			setGroupLink(link);
+			setGroupLocked(true);
+			setLockMessage("Group locked. Share the link so everyone can draw.");
+			setSaveMessage("");
+			setHasSavedRoster(false);
+		} catch (error) {
+			console.error("Supabase lock error", error);
+			setLockMessage("Could not lock group. Try again.");
+		} finally {
+			setIsLocking(false);
+		}
+	};
+
+	const handleDraw = async () => {
+		if (!groupLocked) {
+			setDrawMessage("Waiting for the organiser to generate the group link.");
+			return;
+		}
+
+		if (!trimmedEmail) {
+			setDrawMessage("Enter your email before drawing.");
+			return;
+		}
+
+		if (participants.length < 2) {
+			setDrawMessage("Need at least two people before anyone can draw.");
+			return;
+		}
+
+		if (!selectedName) {
+			setDrawMessage("Pick your name from the list first.");
+			return;
+		}
+
+		if (!groupId) {
+			setDrawMessage("Ask the organiser to refresh the page before drawing.");
+			return;
+		}
+
+		let mergedAssignments = { ...assignments };
+		const remoteAssignments = {};
+
+		try {
+			const { data: participantRows, error: participantsError } = await supabase
+				.from("participants")
+				.select("name, email, giftee_name, drawn_at")
+				.eq("group_id", groupId);
+
+			if (participantsError) {
+				console.error("Supabase fetch assignments error", participantsError);
+			} else if (participantRows) {
+				participantRows.forEach(
+					({ name, email: rowEmail, giftee_name: gifteeName, drawn_at }) => {
+						if (!gifteeName) {
+							return;
+						}
+
+						remoteAssignments[name] = {
+							giftee: gifteeName,
+							email: rowEmail || mergedAssignments[name]?.email || "",
+							timestamp: drawn_at
+								? new Date(drawn_at).getTime()
+								: mergedAssignments[name]?.timestamp || Date.now(),
+						};
+					}
+				);
+
+				if (Object.keys(remoteAssignments).length > 0) {
+					mergedAssignments = { ...mergedAssignments, ...remoteAssignments };
+					setAssignments((current) => ({
+						...current,
+						...remoteAssignments,
+					}));
+				}
+			}
+		} catch (fetchError) {
+			console.error("Supabase assignments fetch failed", fetchError);
+		}
+
+		let existingAssignment = mergedAssignments[selectedName];
+
+		if (existingAssignment) {
+			if (
+				existingAssignment.email &&
+				existingAssignment.email !== trimmedEmail
+			) {
+				setDrawMessage("Looks like someone already claimed this name.");
+				return;
+			}
+
+			const { error: updateError } = await supabase
+				.from("participants")
+				.update({ email: trimmedEmail })
+				.eq("group_id", groupId)
+				.eq("name", selectedName);
+
+			if (updateError) {
+				console.error("Supabase update email error", updateError);
+			}
+
+			const updatedAssignment = {
+				...existingAssignment,
+				email: trimmedEmail,
+			};
+			mergedAssignments[selectedName] = updatedAssignment;
+			setAssignments((current) => ({
+				...current,
+				[selectedName]: updatedAssignment,
+			}));
+
+			setDrawMessage(
+				"You already drew. Check your email from 'Secret Santa' for the details."
+			);
+			setRevealed(false);
+			return;
+		}
+
+		const takenGiftees = new Set(
+			Object.values(mergedAssignments)
+				.map((entry) => entry && entry.giftee)
+				.filter(Boolean)
+		);
+		const availableGiftees = participants.filter(
+			(name) => name !== selectedName && !takenGiftees.has(name)
+		);
+
+		if (availableGiftees.length === 0) {
+			setDrawMessage(
+				"Everyone else has already been matched. Ask the organiser to reset."
+			);
+			return;
+		}
+
+		const randomIndex = Math.floor(Math.random() * availableGiftees.length);
+		const giftee = availableGiftees[randomIndex];
+
+		const { error: drawError } = await supabase
+			.from("participants")
+			.update({
+				email: trimmedEmail,
+				giftee_name: giftee,
+				drawn_at: new Date().toISOString(),
+			})
+			.eq("group_id", groupId)
+			.eq("name", selectedName)
+			.is("giftee_name", null);
+
+		if (drawError) {
+			console.error("Supabase draw update error", drawError);
+			setDrawMessage("Could not store your draw. Try again.");
+			return;
+		}
+
+		mergedAssignments = {
+			...mergedAssignments,
+			[selectedName]: { giftee, email: trimmedEmail, timestamp: Date.now() },
+		};
+		setAssignments(mergedAssignments);
+
+		try {
+			const { data: emailResult, error: emailError } =
+				await supabase.functions.invoke("send_giftee_email", {
+					body: {
+						groupId,
+						gifterName: selectedName,
+						gifteeName: giftee,
+						email: trimmedEmail,
+					},
+				});
+
+			if (emailError || emailResult?.error) {
+				console.error(
+					"Supabase email function error",
+					emailError || emailResult?.error
+				);
+				setDrawMessage(
+					"We saved your draw but couldn't send the email. Ask the organiser to resend."
+				);
+				return;
+			}
+		} catch (invokeError) {
+			console.error("Supabase email function exception", invokeError);
+			setDrawMessage(
+				"We saved your draw but couldn't send the email. Ask the organiser to resend."
+			);
+			return;
+		}
+
+		setDrawMessage("All set! We just emailed you the name you drew.");
+		setRevealed(false);
+	};
+
+	const handleResetGroup = async () => {
+		const confirmReset = window.confirm(
+			"This will clear the list, assignments, and link for this group. Continue?"
+		);
+
+		if (!confirmReset) {
+			return;
+		}
+
+		setIsResetting(true);
+		try {
+			if (groupId) {
+				const { error } = await supabase
+					.from("groups")
+					.delete()
+					.eq("id", groupId);
+				if (error) {
+					throw error;
+				}
+			}
+
+			setParticipants([]);
+			setAssignments({});
+			setRawNames("");
+			setSelectedName("");
+			setEmail("");
+			setDrawMessage("");
+			setGroupLocked(false);
+			setGroupLink("");
+			setRevealed(false);
+			setLockMessage("");
+			setHasSavedRoster(false);
+			setSaveMessage("Group reset. Add names to start again.");
+			setOrganiserEmail("");
+			setGroupId(null);
+		} catch (error) {
+			console.error("Supabase reset error", error);
+			setSaveMessage("Could not reset group. Try again.");
+		} finally {
+			setIsResetting(false);
+		}
+	};
+
+	useEffect(() => {
+		if (!trimmedEmail) {
+			return;
+		}
+
+		const ownedEntry = Object.entries(assignments).find(
+			([, value]) => value && value.email === trimmedEmail
+		);
+
+		if (!ownedEntry) {
+			return;
+		}
+
+		const [name] = ownedEntry;
+		setSelectedName((current) => {
+			if (current && current === name) {
+				return current;
+			}
+
+			const currentAssignment = current ? assignments[current] : null;
+			if (!currentAssignment || currentAssignment.email !== trimmedEmail) {
+				return name;
+			}
+
+			return current;
+		});
+	}, [assignments, trimmedEmail, selectedName]);
+
+	useEffect(() => {
+		setRevealed(false);
+	}, [selectedName, trimmedEmail]);
+
+	const selectedAssignment = selectedName ? assignments[selectedName] : null;
+
+	const drawDisabled =
+		!groupLocked || participants.length < 2 || !selectedName || !trimmedEmail;
+
+	const selectDisabled = !groupLocked || participants.length === 0;
+
+	const canReset =
+		participants.length > 0 ||
+		rawNames.trim().length > 0 ||
+		groupLocked ||
+		groupLink ||
+		Object.keys(assignments).length > 0;
+
+	const canGenerateLink = participants.length >= 2 && !groupLocked;
+
+	const statusMessage = (() => {
+		if (!groupLocked) {
+			return "Organiser is still setting things up.";
+		}
+
+		if (!trimmedEmail) {
+			return "Enter your email so we know who is drawing.";
+		}
+
+		if (!selectedName) {
+			return "Pick your name from the list to continue.";
+		}
+
+		return "Ready when you are - hit the button and we will email your match.";
+	})();
+
+	return (
+		<div className="app">
+			<header className="header">
+				<h1> 🤶 Secret Santa Draw 🧑‍🎄 </h1>
+				<p>
+					Organiser adds names, generates a private link, and everyone signs in
+					with their email to reveal their giftee.
+				</p>
+			</header>
+			<main className="panels">
+				<section className="panel">
+					<div className="panel-header">
+						<h2>Organiser setup</h2>
+					</div>
+					<label className="field-label" htmlFor="organiser-email">
+						Organiser email
+					</label>
+					<input
+						id="organiser-email"
+						className="field-control"
+						type="email"
+						placeholder="organiser@email.com"
+						value={organiserEmail}
+						onChange={(event) => setOrganiserEmail(event.target.value)}
+					/>
+					<label className="field-label" htmlFor="names">
+						Participant names (add one name per line)
+					</label>
+					<textarea
+						id="names"
+						className="field-control"
+						placeholder="Add names here..."
+						value={rawNames}
+						onChange={(event) => setRawNames(event.target.value)}
+						rows={8}
+						disabled={groupLocked}
+					/>
+					<div className="group-actions">
+						<button
+							className="button primary"
+							type="button"
+							onClick={handleSaveList}
+							disabled={groupLocked || isSaving}
+						>
+							{isSaving ? "Saving…" : "Save list"}
+						</button>
+						<button
+							className="button secondary"
+							type="button"
+							onClick={handleGenerateGroupLink}
+							disabled={(!groupLocked && !canGenerateLink) || isLocking}
+						>
+							{groupLocked
+								? "Share group link"
+								: isLocking
+								? "Generating…"
+								: "Generate group link"}
+						</button>
+						<button
+							className="button ghost"
+							type="button"
+							onClick={handleResetGroup}
+							disabled={!canReset || isResetting}
+						>
+							{isResetting ? "Resetting…" : "Reset group"}
+						</button>
+					</div>
+					{saveMessage ? <div className="status">{saveMessage}</div> : null}
+					{lockMessage ? <div className="status">{lockMessage}</div> : null}
+					{groupLink ? (
+						<div className="group-link">
+							<span>Group link</span>
+							<code>{groupLink}</code>
+							<p>Send this URL to everyone participating to draw their name.</p>
+						</div>
+					) : null}
+					<div className="names-preview" aria-live="polite">
+						<p>{participantCountLabel}</p>
+						{participants.length > 0 ? (
+							<ul>
+								{participants.map((name) => {
+									const assignment = assignments[name];
+									const claimed = Boolean(assignment);
+									return (
+										<li key={name}>
+											<div className="name-main">
+												<span>{name}</span>
+												<span
+													className={`name-tag${
+														claimed ? " claimed" : " pending"
+													}`}
+												>
+													{claimed ? "claimed" : "waiting"}
+												</span>
+											</div>
+										</li>
+									);
+								})}
+							</ul>
+						) : null}
+					</div>
+					<div className="info">
+						Once the group link is generated, the list freezes. You can still
+						check who has drawn, but changes require a reset.
+					</div>
+				</section>
+				<section className="panel">
+					<div className="panel-header">
+						<h2>Participant draw</h2>
+						<p>Enter your email to claim your name.</p>
+					</div>
+					<div className="auth-group">
+						<div className="auth-field">
+							<label className="field-label" htmlFor="email">
+								Email
+							</label>
+							<input
+								id="email"
+								className="field-control"
+								placeholder="name@email.com"
+								type="email"
+								value={email}
+								onChange={(event) => {
+									setEmail(event.target.value);
+									setDrawMessage("");
+								}}
+								disabled={!groupLocked}
+							/>
+						</div>
+						<div className="auth-field">
+							<label className="field-label" htmlFor="lookup">
+								Find your name
+							</label>
+							<select
+								id="lookup"
+								className="field-control"
+								value={selectedName}
+								onChange={(event) => {
+									setSelectedName(event.target.value);
+									setDrawMessage("");
+								}}
+								disabled={selectDisabled}
+							>
+								<option value="">
+									{participants.length === 0
+										? "Waiting for organiser"
+										: "Choose your name"}
+								</option>
+								{participants.map((name) => {
+									const assignment = assignments[name];
+									const claimedBySomeoneElse =
+										assignment &&
+										assignment.email &&
+										assignment.email !== trimmedEmail;
+									return (
+										<option
+											key={name}
+											value={name}
+											disabled={claimedBySomeoneElse}
+										>
+											{name}
+											{assignment
+												? claimedBySomeoneElse
+													? " (taken)"
+													: " (yours)"
+												: ""}
+										</option>
+									);
+								})}
+							</select>
+						</div>
+					</div>
+					<button
+						className="button secondary"
+						type="button"
+						onClick={handleDraw}
+						disabled={drawDisabled}
+					>
+						{selectedAssignment && selectedAssignment.email === trimmedEmail
+							? "Email me my person"
+							: "Draw my person"}
+					</button>
+					<div className="draw-status">{drawMessage || statusMessage}</div>
+					<div className="token-display">
+						<span className="token-label">Check your inbox</span>
+						<span className="token-value">
+							{groupLocked
+								? "We email your giftee as soon as you draw."
+								: "Waiting for organiser to share the group link."}
+						</span>
+						<p>
+							If you lose the email you can enter the same email and tap the
+							button again to resend it.
+						</p>
+					</div>
+				</section>
+			</main>
+		</div>
+	);
 }
 
 export default App;
