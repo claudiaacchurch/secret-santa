@@ -753,7 +753,7 @@ function App() {
 							<input
 								id="participant-name"
 								className="field-control"
-								placeholder="e.g. Claudia Church"
+								placeholder="e.g. Claudia"
 								value={newParticipant}
 								onChange={(event) => {
 									setNewParticipant(event.target.value);
