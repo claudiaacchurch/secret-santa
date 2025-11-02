@@ -877,7 +877,8 @@ function App() {
 						<p>
 							Only the organiser can edit the participants. If that’s you,
 							unlock the tools with the organiser email.
-						</p>
+					</p>
+					<div className="organiser-actions">
 						<button
 							className="button ghost"
 							type="button"
@@ -885,8 +886,20 @@ function App() {
 						>
 							I'm the organiser
 						</button>
-					</section>
-				)}
+						<button
+							className="button ghost"
+							type="button"
+							onClick={() => {
+								if (typeof window !== "undefined") {
+									window.location.href = "/";
+								}
+							}}
+						>
+							Start a new group
+						</button>
+					</div>
+				</section>
+			)}
 				<section className="panel">
 					<div className="panel-header">
 						<h2>Draw your Giftee!</h2>

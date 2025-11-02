@@ -132,14 +132,15 @@ textarea.field-control {
   color: #f5f5f5;
 }
 
+
 .button.ghost {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.1);
   color: #f5f5f5;
-  border: 1.5px solid rgba(245, 245, 245, 0.6);
+  border: 1.5px solid rgba(245, 245, 245, 0.3);
 }
 
 .button.ghost:hover {
-  background: rgba(245, 245, 245, 0.1);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .button:hover {
@@ -359,6 +360,16 @@ textarea.field-control {
   background: rgba(254, 243, 199, 0.12);
 }
 
+.button.tertiary {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f5f5f5;
+  border: 1.5px solid rgba(245, 245, 245, 0.35);
+}
+
+.button.tertiary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -406,4 +417,33 @@ textarea.field-control {
 
 .modal .button.secondary:disabled {
   opacity: 0.6;
+}
+
+.modal .button.ghost {
+  color: #111827;
+  border: 1.5px solid rgba(17, 24, 39, 0.5);
+  background: transparent;
+}
+
+.modal .button.ghost:hover {
+  background: rgba(17, 24, 39, 0.08);
+}
+
+.modal .button.secondary:disabled {
+  opacity: 0.6;
+}
+.organiser-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.button.tertiary {
+  background: transparent;
+  color: #2563eb;
+  border: 1.5px solid rgba(37, 99, 235, 0.6);
+}
+
+.button.tertiary:hover {
+  background: rgba(37, 99, 235, 0.12);
 }
